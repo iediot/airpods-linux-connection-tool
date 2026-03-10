@@ -1,16 +1,9 @@
-<<<<<<< HEAD
-# Tauri + SvelteKit + TypeScript
-
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
-=======
 <h1 align="center">AirPods Linux Connection Tool</h1>
->>>>>>> ef91d5e (Update README.md)
 
-## Recommended IDE Setup
+<p align="center">
+A lightweight background service that detects AirPods in pairing mode and offers to connect them — like macOS, but for Linux.
+</p>
 
-<<<<<<< HEAD
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
-=======
 <p align="center">
   <img src="https://img.shields.io/badge/Linux-grey?logo=linux&logoColor=white">
   <img src="https://img.shields.io/badge/Rust-orange?logo=rust&logoColor=white">
@@ -98,4 +91,3 @@ systemctl --user stop airpods-helper.service
 # Disable autostart
 systemctl --user disable airpods-helper.service
 ```
->>>>>>> ef91d5e (Update README.md)
