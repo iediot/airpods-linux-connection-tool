@@ -18,7 +18,9 @@
         "resizable": false,
         "decorations": false,
         "transparent": true,
-        "alwaysOnTop": true
+        "backgroundColor": "#00000000",
+        "alwaysOnTop": true,
+        "visible": false
       }
     ],
     "security": {
