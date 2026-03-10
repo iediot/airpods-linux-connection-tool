@@ -26,11 +26,17 @@ async fn get_device_name(device: &Device) -> Option<String> {
     None
 }
 
+<<<<<<< HEAD
 async fn find_paired_airpods(adapter: &Adapter) -> Result<Option<Device>, bluer::Error> {
     let device_addresses = adapter.device_addresses().await?;
+=======
+pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    println!("Scanning for AirPods in pairing mode...");
+>>>>>>> 8acb368 (final)
 
     println!("Known devices: {} total", device_addresses.len());
 
+<<<<<<< HEAD
     for addr in device_addresses {
         let device = adapter.device(addr)?;
         let paired = device.is_paired().await.unwrap_or(false);
@@ -39,6 +45,19 @@ async fn find_paired_airpods(adapter: &Adapter) -> Result<Option<Device>, bluer:
             println!("  Device: {} ({}) paired={}", name, addr, paired);
             if is_airpods_name(&name) && paired {
                 return Ok(Some(device));
+=======
+        let device_addresses = adapter.device_addresses().await?;
+        for addr in device_addresses {
+            let device = adapter.device(addr)?;
+            if let Some(name) = get_device_name(&device).await {
+                if is_airpods_name(&name) {
+                    let connected = device.is_connected().await.unwrap_or(false);
+                    if !connected {
+                        println!("  Removing cached device: {} ({})", name, addr);
+                        let _ = adapter.remove_device(addr).await;
+                    }
+                }
+>>>>>>> 8acb368 (final)
             }
         } else {
             println!("  Device: <no name> ({}) paired={}", addr, paired);
@@ -87,7 +106,25 @@ pub async fn wait_for_airpods() -> Result<String, Box<dyn std::error::Error + Se
 
 pub async fn connect_airpods() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let adapter = get_adapter().await?;
+<<<<<<< HEAD
     let device: Option<Device> = find_paired_airpods(&adapter).await?;
+=======
+
+    let device = {
+        let device_addresses = adapter.device_addresses().await?;
+        let mut found = None;
+        for addr in device_addresses {
+            let device = adapter.device(addr)?;
+            if let Some(name) = get_device_name(&device).await {
+                if is_airpods_name(&name) {
+                    found = Some(device);
+                    break;
+                }
+            }
+        }
+        found
+    };
+>>>>>>> 8acb368 (final)
 
     match device {
         Some(device) => {
@@ -98,10 +135,26 @@ pub async fn connect_airpods() -> Result<String, Box<dyn std::error::Error + Sen
                 return Ok(format!("{} are already connected", name));
             }
 
+<<<<<<< HEAD
             if !device.is_trusted().await? {
                 device.set_trusted(true).await?;
             }
 
+=======
+            if !device.is_paired().await.unwrap_or(false) {
+                println!("Pairing with {}...", name);
+                match device.pair().await {
+                    Ok(()) => println!("Paired with {}", name),
+                    Err(e) => println!("Pair returned error (ignoring): {}", e),
+                }
+            }
+
+            if !device.is_trusted().await.unwrap_or(false) {
+                println!("Trusting {}...", name);
+                let _ = device.set_trusted(true).await;
+            }
+
+>>>>>>> 8acb368 (final)
             let max_retries = 3;
             let mut last_error: Option<bluer::Error> = None;
 
