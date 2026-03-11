@@ -62,11 +62,9 @@
     height: 100%;
     background: transparent;
     overflow: hidden;
-    /* Ensure Inter is loaded in app.html as discussed earlier */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
   }
 
-  /* Compact card with symmetrical borders */
   .card {
     position: fixed;
     top: 0;
@@ -83,7 +81,6 @@
     justify-content: center;
     align-items: center;
 
-    /* Reduced padding for a more squished look */
     padding: 6px 14px;
     gap: 6px;
 
@@ -92,18 +89,17 @@
     overflow: hidden;
   }
 
-  /* Group the title + prompt tightly */
   .text {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0; /* almost touching */
+    gap: 0;
   }
 
   h2 {
     font-size: 18px;
     font-weight: 600;
-    margin-bottom: 2px; /* tiny gap to the prompt */
+    margin-bottom: 2px;
   }
 
   p {
@@ -124,16 +120,15 @@
     margin-top: 2px;
   }
 
-  /* Buttons sit close under the text */
   .buttons {
     display: flex;
     gap: 10px;
-    margin-top: 6px; /* tight to the text */
+    margin-top: 6px;
   }
 
   button {
     border: none;
-    padding: 8px 14px; /* unchanged size per request */
+    padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
     font-weight: 500;
