@@ -6,6 +6,8 @@ async fn get_adapter() -> Result<Adapter, bluer::Error> {
     let session = bluer::Session::new().await?;
     let adapter = session.default_adapter().await?;
     adapter.set_powered(true).await?;
+    let _ = adapter.set_discoverable(true).await;
+    let _ = adapter.set_pairable(true).await;
     Ok(adapter)
 }
 
