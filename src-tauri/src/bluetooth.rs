@@ -48,7 +48,7 @@ pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::e
         let discover = adapter.discover_devices().await?;
         pin_mut!(discover);
 
-        println!("  Discovery running...");
+        println!("Discovery running...");
 
         let result = tokio::time::timeout(Duration::from_secs(30), async {
             while let Some(event) = discover.next().await {
@@ -57,7 +57,7 @@ pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::e
                         if let Some(name) = get_device_name(&device).await {
                             if is_airpods_name(&name) {
                                 let connected = device.is_connected().await.unwrap_or(false);
-                                println!("  Found: {} (connected={})", name, connected);
+                                println!("Found: {} (connected={})", name, connected);
                                 if !connected {
                                     return Some(name);
                                 }
@@ -76,7 +76,7 @@ pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::e
                 return Ok(name);
             }
             _ => {
-                println!("  No AirPods found, restarting scan...");
+                println!("No AirPods found, restarting scan...");
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 continue;
             }
@@ -124,7 +124,7 @@ pub async fn connect_airpods() -> Result<String, Box<dyn std::error::Error + Sen
                 let _ = device.set_trusted(true).await;
             }
 
-            let max_retries = 3;
+            let max_retries = 2;
             let mut last_error: Option<bluer::Error> = None;
 
             for attempt in 1..=max_retries {

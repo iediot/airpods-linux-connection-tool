@@ -10,16 +10,18 @@ struct ScanReady(Arc<AtomicBool>);
 async fn connect_airpods(app_handle: tauri::AppHandle) -> Result<String, String> {
     let result = bluetooth::connect_airpods()
         .await
-        .map_err(|e: Box<dyn std::error::Error + Send + Sync>| e.to_string())?;
+        .map_err(|e: Box<dyn std::error::Error + Send + Sync>| e.to_string());
 
-    if let Some(window) = app_handle.get_webview_window("main") {
-        let _ = window.hide();
+    if result.is_ok() {
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.hide();
+        }
+
+        let flag = app_handle.state::<ScanReady>().0.clone();
+        flag.store(true, Ordering::SeqCst);
     }
 
-    let flag = app_handle.state::<ScanReady>().0.clone();
-    flag.store(true, Ordering::SeqCst);
-
-    Ok(result)
+    result
 }
 
 #[tauri::command]
@@ -40,7 +42,7 @@ fn show_popup(window: &tauri::WebviewWindow) {
     use tauri::LogicalPosition;
 
     let width: f64 = 300.0;
-    let height: f64 = 160.0;
+    let height: f64 = 200.0;
 
     let _ = window.set_min_size(Some(LogicalSize::new(width, height)));
     let _ = window.set_size(LogicalSize::new(width, height));
