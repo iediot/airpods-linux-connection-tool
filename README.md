@@ -17,18 +17,26 @@ A lightweight background service that detects AirPods in pairing mode and offers
 
 1. Runs silently in the background
 2. Continuously scans for AirPods in **pairing mode** (hold the button on the back of the case)
-3. When detected, a popup appears in the center of the screen
+3. When detected, a popup appears in the center of the screen showing the device name
 4. Click **Connect** to pair, trust, and connect — or **Ignore** to dismiss (30s cooldown)
 
 ### Requirements
 
 - Linux with BlueZ (any modern distro)
 - Bluetooth adapter
-- `bluez` and `dbus` packages
+- Rust toolchain
+- Node.js + npm
 
 ### Build from source
 
 ```bash
+# Install Rust if you don't have it
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install system dependencies (Debian/Ubuntu/Mint)
+sudo apt install libdbus-1-dev pkg-config libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+# Clone and build
 git clone https://github.com/iediot/airpods-linux-connection-tool.git
 cd airpods-linux-connection-tool
 npm install
@@ -57,6 +65,7 @@ ExecStart=%h/.local/bin/airpods-linux-helper
 Restart=on-failure
 RestartSec=5
 Environment=DISPLAY=:0
+PassEnvironment=WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR
 
 [Install]
 WantedBy=graphical-session.target
@@ -72,7 +81,7 @@ systemctl --user start airpods-helper.service
 
 | Action | What happens |
 |---|---|
-| **AirPods enter pairing mode** | Popup appears automatically |
+| **AirPods enter pairing mode** | Popup appears automatically showing device name |
 | **Click Connect** | Pairs, trusts, and connects your AirPods |
 | **Click Ignore** | Dismisses popup, 30s cooldown before next scan |
 
