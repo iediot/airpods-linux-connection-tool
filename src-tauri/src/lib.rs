@@ -1,10 +1,17 @@
 use tauri::{Manager, Emitter};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 mod bluetooth;
 
-struct ScanReady(Arc<AtomicBool>);
+#[derive(Debug, PartialEq)]
+enum ScanState {
+    Scanning,
+    Ready,
+    Cooldown(u64),
+}
+
+struct AppState(Arc<Mutex<ScanState>>);
 
 #[tauri::command]
 async fn connect_airpods(app_handle: tauri::AppHandle) -> Result<String, String> {
@@ -13,12 +20,13 @@ async fn connect_airpods(app_handle: tauri::AppHandle) -> Result<String, String>
         .map_err(|e: Box<dyn std::error::Error + Send + Sync>| e.to_string());
 
     if result.is_ok() {
+        let app_state = app_handle.state::<AppState>();
+        let mut state = app_state.0.lock().await;
+        *state = ScanState::Cooldown(60);
+        drop(state);
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.hide();
         }
-
-        let flag = app_handle.state::<ScanReady>().0.clone();
-        flag.store(true, Ordering::SeqCst);
     }
 
     result
@@ -30,11 +38,10 @@ async fn ignore_airpods(app_handle: tauri::AppHandle) {
         let _ = window.hide();
     }
 
-    println!("Ignored — waiting 30s before next scan...");
-    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-
-    let flag = app_handle.state::<ScanReady>().0.clone();
-    flag.store(true, Ordering::SeqCst);
+    println!("Ignored — will wait 30s before next scan.");
+    let app_state = app_handle.state::<AppState>();
+    let mut state = app_state.0.lock().await;
+    *state = ScanState::Cooldown(30);
 }
 
 fn show_popup(window: &tauri::WebviewWindow) {
@@ -64,27 +71,48 @@ fn show_popup(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let scan_ready = Arc::new(AtomicBool::new(true));
+    let app_state = Arc::new(Mutex::new(ScanState::Ready));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(ScanReady(scan_ready.clone()))
+        .manage(AppState(app_state.clone()))
         .setup(move |app| {
             let app_handle = app.handle().clone();
-            let ready = scan_ready.clone();
+            let state = app_state.clone();
 
             tauri::async_runtime::spawn(async move {
                 loop {
-                    while !ready.load(Ordering::SeqCst) {
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    let current = {
+                        let s = state.lock().await;
+                        match *s {
+                            ScanState::Ready => ScanState::Ready,
+                            ScanState::Scanning => ScanState::Scanning,
+                            ScanState::Cooldown(secs) => ScanState::Cooldown(secs),
+                        }
+                    };
+
+                    match current {
+                        ScanState::Cooldown(secs) => {
+                            tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+                            let mut s = state.lock().await;
+                            *s = ScanState::Ready;
+                            continue;
+                        }
+                        ScanState::Scanning => {
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                            continue;
+                        }
+                        ScanState::Ready => {}
                     }
 
-                    match bluetooth::wait_for_airpods(0).await {
+                    {
+                        let mut s = state.lock().await;
+                        *s = ScanState::Scanning;
+                    }
+
+                    match bluetooth::wait_for_airpods().await {
                         Ok(name) => {
                             println!("Found AirPods: {} — showing popup", name);
-
-                            ready.store(false, Ordering::SeqCst);
-
                             if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.emit("airpods-found", &name);
                                 show_popup(&window);
@@ -92,6 +120,9 @@ pub fn run() {
                         }
                         Err(e) => {
                             eprintln!("Scan error: {}, retrying in 10s...", e);
+                            let mut s = state.lock().await;
+                            *s = ScanState::Ready;
+                            drop(s);
                             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
                         }
                     }

@@ -1,14 +1,14 @@
-use bluer::{Adapter, AdapterEvent, Device};
-use futures_util::{pin_mut, StreamExt};
+use bluer::{Adapter, AdapterEvent, Device, DeviceEvent, Session};
+use futures_util::{pin_mut, stream::SelectAll, StreamExt};
 use std::time::Duration;
 
-async fn get_adapter() -> Result<Adapter, bluer::Error> {
+async fn get_adapter() -> Result<(Session, Adapter), bluer::Error> {
     let session = bluer::Session::new().await?;
     let adapter = session.default_adapter().await?;
     adapter.set_powered(true).await?;
     let _ = adapter.set_discoverable(true).await;
     let _ = adapter.set_pairable(true).await;
-    Ok(adapter)
+    Ok((session, adapter))
 }
 
 fn is_airpods_name(name: &str) -> bool {
@@ -27,19 +27,18 @@ async fn get_device_name(device: &Device) -> Option<String> {
     None
 }
 
-pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn wait_for_airpods() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     println!("Scanning for AirPods in pairing mode...");
 
-    loop {
-        let adapter = get_adapter().await?;
+    let (_session, adapter) = get_adapter().await?;
 
+    loop {
         let device_addresses = adapter.device_addresses().await?;
         for addr in device_addresses {
             let device = adapter.device(addr)?;
             if let Some(name) = get_device_name(&device).await {
                 if is_airpods_name(&name) {
-                    let connected = device.is_connected().await.unwrap_or(false);
-                    if !connected {
+                    if !device.is_connected().await.unwrap_or(true) {
                         println!("  Removing cached device: {} ({})", name, addr);
                         let _ = adapter.remove_device(addr).await;
                     }
@@ -50,22 +49,43 @@ pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::e
         let discover = adapter.discover_devices().await?;
         pin_mut!(discover);
 
+        let mut device_change_streams: SelectAll<_> = SelectAll::new();
+
         println!("Discovery running...");
 
         let result = tokio::time::timeout(Duration::from_secs(30), async {
-            while let Some(event) = discover.next().await {
-                if let AdapterEvent::DeviceAdded(addr) = event {
-                    if let Ok(device) = adapter.device(addr) {
-                        if let Some(name) = get_device_name(&device).await {
-                            if is_airpods_name(&name) {
-                                let connected = device.is_connected().await.unwrap_or(false);
-                                println!("Found: {} (connected={})", name, connected);
-                                if !connected {
+            loop {
+                tokio::select! {
+                    Some(event) = discover.next() => {
+                        if let AdapterEvent::DeviceAdded(addr) = event {
+                            if let Ok(device) = adapter.device(addr) {
+                                if device.is_connected().await.unwrap_or(true) {
+                                    continue;
+                                }
+                                if let Some(name) = get_device_name(&device).await {
+                                    if is_airpods_name(&name) {
+                                        return Some(name);
+                                    }
+                                }
+                                if let Ok(events) = device.events().await {
+                                    device_change_streams.push(events.map(move |e| (addr, e)));
+                                }
+                            }
+                        }
+                    }
+                    Some((addr, DeviceEvent::PropertyChanged(_))) = device_change_streams.next() => {
+                        if let Ok(device) = adapter.device(addr) {
+                            if device.is_connected().await.unwrap_or(true) {
+                                continue;
+                            }
+                            if let Some(name) = get_device_name(&device).await {
+                                if is_airpods_name(&name) {
                                     return Some(name);
                                 }
                             }
                         }
                     }
+                    else => break,
                 }
             }
             None
@@ -87,7 +107,7 @@ pub async fn wait_for_airpods(_start_state: u8) -> Result<String, Box<dyn std::e
 }
 
 pub async fn connect_airpods() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let adapter = get_adapter().await?;
+    let (_session, adapter) = get_adapter().await?;
 
     let device = {
         let device_addresses = adapter.device_addresses().await?;

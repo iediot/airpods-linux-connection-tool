@@ -1,16 +1,32 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
 
   let connecting = false;
   let error = "";
+  let deviceName = "";
 
   onMount(() => {
-    listen("airpods-found", () => {
+    const unlistenFound = listen<string>("airpods-found", (event) => {
       connecting = false;
       error = "";
+      deviceName = event.payload ?? "";
     });
+
+    const win = getCurrentWindow();
+    const unlistenFocus = win.onFocusChanged(({ payload: focused }) => {
+      if (focused) {
+        connecting = false;
+        error = "";
+      }
+    });
+
+    return () => {
+      unlistenFound.then(fn => fn());
+      unlistenFocus.then(fn => fn());
+    };
   });
 
   async function connect() {
@@ -18,6 +34,7 @@
     error = "";
     try {
       await invoke("connect_airpods");
+      connecting = false;
     } catch (e) {
       error = String(e);
       connecting = false;
@@ -38,7 +55,7 @@
     {:else if connecting}
       <p>Connecting...</p>
     {:else}
-      <p>Connect your AirPods?</p>
+      <p>Connect {deviceName || "your AirPods"}?</p>
     {/if}
   </div>
 
